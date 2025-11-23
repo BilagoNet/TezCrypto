@@ -1,3 +1,27 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "tezcrypto"
+version = "0.1.0"
+description = "Fast and portable cryptography library for Python, written in Rust."
+readme = "README.md"
+license = { text = "LGPL-3.0" }
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Security :: Cryptography",
+    "Operating System :: OS Independent",
+]
+authors = [{name = "TezCrypto Developers"}]
+
+[project.urls]
+Homepage = "https://github.com/pyrogram/tgcrypto"
+Repository = "https://github.com/pyrogram/tgcrypto"
+
+[tool.maturin]
+features = ["python"]
+

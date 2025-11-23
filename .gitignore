@@ -105,3 +105,12 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Rust
+Cargo.lock
+target/
+
+# Editors
+.vscode/
+*.swp
+*.swo

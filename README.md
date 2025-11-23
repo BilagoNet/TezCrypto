@@ -1,166 +1,73 @@
-# TgCrypto
+# TezCrypto
 
-> [!NOTE]
-> The project is no longer maintained or supported. Thanks for appreciating it.
+TezCrypto is a fast and portable cryptography library for Python, written in Rust. It is a migration of the original TgCrypto library.
 
-> [!NOTE]
-> The implementations of the algorithms presented in this repository are to be considered for educational purposes only.
+## Features
 
-> Fast and Portable Cryptography Extension Library for Pyrogram
-
-**TgCrypto** is a Cryptography Library written in C as a Python extension. It is designed to be portable, fast,
-easy to install and use. TgCrypto is intended for [Pyrogram](https://github.com/pyrogram/pyrogram) and implements the
-cryptographic algorithms Telegram requires, namely:
-
-- **`AES-256-IGE`** - used in [MTProto v2.0](https://core.telegram.org/mtproto).
-- **`AES-256-CTR`** - used for [CDN encrypted files](https://core.telegram.org/cdn).
-- **`AES-256-CBC`** - used for [encrypted passport credentials](https://core.telegram.org/passport).
-
-## Requirements
-
-- Python 3.7 or higher.
+- AES-256-CBC
+- AES-256-CTR
+- AES-256-IGE
 
 ## Installation
 
-``` bash
-$ pip3 install -U tgcrypto
-```
-
-## API
-
-TgCrypto API consists of these six methods:
-
-```python
-def ige256_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes: ...
-def ige256_decrypt(data: bytes, key: bytes, iv: bytes) -> bytes: ...
-
-def ctr256_encrypt(data: bytes, key: bytes, iv: bytes, state: bytes) -> bytes: ...
-def ctr256_decrypt(data: bytes, key: bytes, iv: bytes, state: bytes) -> bytes: ...
-
-def cbc256_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes: ...
-def cbc256_decrypt(data: bytes, key: bytes, iv: bytes) -> bytes: ...
+```bash
+pip install tezcrypto
 ```
 
 ## Usage
 
-### IGE Mode
-
-**Note**: Data must be padded to match a multiple of the block size (16 bytes).
-
-``` python
+```python
+import tezcrypto
 import os
 
-import tgcrypto
+key = os.urandom(32)
+iv = os.urandom(32)
+data = os.urandom(64)
 
-data = os.urandom(10 * 1024 * 1024 + 7)  # 10 MB of random data + 7 bytes to show padding
-key = os.urandom(32)  # Random Key
-iv = os.urandom(32)  # Random IV
+# IGE Mode
+encrypted = tezcrypto.ige256_encrypt(data, key, iv)
+decrypted = tezcrypto.ige256_decrypt(encrypted, key, iv)
+assert data == decrypted
 
-# Pad with zeroes: -7 % 16 = 9
-data += bytes(-len(data) % 16)
+# CTR Mode
+iv_ctr = os.urandom(16)
+state = bytes(1) # Initial state
+encrypted_ctr = tezcrypto.ctr256_encrypt(data, key, iv_ctr, state)
+decrypted_ctr = tezcrypto.ctr256_decrypt(encrypted_ctr, key, iv_ctr, state)
+assert data == decrypted_ctr
 
-ige_encrypted = tgcrypto.ige256_encrypt(data, key, iv)
-ige_decrypted = tgcrypto.ige256_decrypt(ige_encrypted, key, iv)
-
-print(data == ige_decrypted)  # True
-```
-    
-### CTR Mode (single chunk)
-
-``` python
-import os
-
-import tgcrypto
-
-data = os.urandom(10 * 1024 * 1024)  # 10 MB of random data
-
-key = os.urandom(32)  # Random Key
-
-enc_iv = bytearray(os.urandom(16))  # Random IV
-dec_iv = enc_iv.copy()  # Keep a copy for decryption
-
-ctr_encrypted = tgcrypto.ctr256_encrypt(data, key, enc_iv, bytes(1))
-ctr_decrypted = tgcrypto.ctr256_decrypt(ctr_encrypted, key, dec_iv, bytes(1))
-
-print(data == ctr_decrypted)  # True
+# CBC Mode
+iv_cbc = os.urandom(16)
+encrypted_cbc = tezcrypto.cbc256_encrypt(data, key, iv_cbc)
+decrypted_cbc = tezcrypto.cbc256_decrypt(encrypted_cbc, key, iv_cbc)
+assert data == decrypted_cbc
 ```
 
-### CTR Mode (stream)
+## Development
 
-``` python
-import os
-from io import BytesIO
+To build and install locally:
 
-import tgcrypto
+```bash
+# Install maturin
+pip install maturin
 
-data = BytesIO(os.urandom(10 * 1024 * 1024))  # 10 MB of random data
-
-key = os.urandom(32)  # Random Key
-
-enc_iv = bytearray(os.urandom(16))  # Random IV
-dec_iv = enc_iv.copy()  # Keep a copy for decryption
-
-enc_state = bytes(1)  # Encryption state, starts from 0
-dec_state = bytes(1)  # Decryption state, starts from 0
-
-encrypted_data = BytesIO()  # Encrypted data buffer
-decrypted_data = BytesIO()  # Decrypted data buffer
-
-while True:
-    chunk = data.read(1024)
-
-    if not chunk:
-        break
-
-    # Write 1K encrypted bytes into the encrypted data buffer
-    encrypted_data.write(tgcrypto.ctr256_encrypt(chunk, key, enc_iv, enc_state))
-
-# Reset position. We need to read it now
-encrypted_data.seek(0)
-
-while True:
-    chunk = encrypted_data.read(1024)
-
-    if not chunk:
-        break
-
-    # Write 1K decrypted bytes into the decrypted data buffer
-    decrypted_data.write(tgcrypto.ctr256_decrypt(chunk, key, dec_iv, dec_state))
-
-print(data.getvalue() == decrypted_data.getvalue())  # True
-```
-
-### CBC Mode
-
-**Note**: Data must be padded to match a multiple of the block size (16 bytes).
-
-``` python
-import os
-
-import tgcrypto
-
-data = os.urandom(10 * 1024 * 1024 + 7)  # 10 MB of random data + 7 bytes to show padding
-key = os.urandom(32)  # Random Key
-
-enc_iv = bytearray(os.urandom(16))  # Random IV
-dec_iv = enc_iv.copy()  # Keep a copy for decryption
-
-# Pad with zeroes: -7 % 16 = 9
-data += bytes(-len(data) % 16)
-
-cbc_encrypted = tgcrypto.cbc256_encrypt(data, key, enc_iv)
-cbc_decrypted = tgcrypto.cbc256_decrypt(cbc_encrypted, key, dec_iv)
-
-print(data == cbc_decrypted)  # True
+# Build and install
+maturin develop --features python
 ```
 
 ## Testing
 
-1. Clone this repository: `git clone https://github.com/pyrogram/tgcrypto`.
-2. Enter the directory: `cd tgcrypto`.
-3. Install `tox`: `pip3 install tox`
-4. Run tests: `tox`.
+```bash
+# Run Rust tests
+cargo test
+
+# Run Python validation
+python validate.py
+```
 
 ## License
 
-[LGPLv3+](COPYING.lesser) © 2017-present [Dan](https://github.com/delivrance)
+LGPL-3.0
+
+maturin develop
+```
